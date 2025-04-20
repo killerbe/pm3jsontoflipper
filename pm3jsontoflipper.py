@@ -15,39 +15,37 @@ class MifareCard:
 
 def main():
     try:
-        # Запрашиваем пути к файлам через input
-        input_file = input(
-            "Введите путь к входному JSON-файлу дампа Proxmark3: "
-        ).strip()
+        # Request file paths via input
+        input_file = input("Enter the path to the Proxmark3 JSON dump file: ").strip()
         output_file = input(
-            "Введите путь к выходному .nfc-файлу (Flipper Zero): "
+            "Enter the path to the output .nfc file (Flipper Zero): "
         ).strip()
 
-        # Преобразуем пути к абсолютному формату
+        # Convert paths to absolute format
         input_file = os.path.abspath(input_file)
         output_file = os.path.abspath(output_file)
 
-        # Проверяем, что указан полный путь с именем файла для выходного файла
+        # Check if a complete path with filename is specified for the output file
         if os.path.isdir(output_file):
             default_name = "output.nfc"
             output_file = os.path.join(output_file, default_name)
-            print(f"Выходной путь был директорией, используем: {output_file}")
+            print(f"Output path was a directory, using: {output_file}")
 
-        # Проверяем существование входного файла
+        # Verify input file exists
         if not os.path.isfile(input_file):
-            raise FileNotFoundError(f"Входной файл не найден: {input_file}")
+            raise FileNotFoundError(f"Input file not found: {input_file}")
 
         card = parse_proxmark3_json_file(input_file)
 
-        # Создаем директорию для выходного файла, если она не существует
+        # Create directory for output file if it doesn't exist
         os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
         write_nfc_file(output_file, card)
         print(
-            f"Успешно сконвертировано:\n  Input:  {input_file}\n  Output: {output_file}"
+            f"Successfully converted:\n  Input:  {input_file}\n  Output: {output_file}"
         )
     except Exception as e:
-        print(f"Ошибка: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 
@@ -55,13 +53,15 @@ def parse_proxmark3_json_file(filename):
     with open(filename, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    # Проверяем ключевые поля
+    # Check key fields
     if data.get("Created") != "proxmark3":
-        raise ValueError("JSON-файл должен иметь 'Created'='proxmark3'.")
+        raise ValueError("JSON file must have 'Created'='proxmark3'.")
     file_type = data.get("FileType", "").lower()
-    # Если хотим, чтобы поддерживались 'mfcard', 'mfc v2' и т.п.
+    # Support for 'mfcard', 'mfc v2', etc.
     if not file_type.startswith("mf"):
-        raise ValueError("Поле 'FileType' не похоже на Mifare-дамп (mf*).")
+        raise ValueError(
+            "The 'FileType' field doesn't appear to be a Mifare dump (mf*)."
+        )
 
     card_info = data.get("Card", {})
     uid = decode_hex_data(card_info.get("UID", ""))
@@ -69,7 +69,7 @@ def parse_proxmark3_json_file(filename):
     sak = decode_hex_data(card_info.get("SAK", ""))
 
     blocks_map = data.get("blocks", {})
-    # Сортируем ключи '0', '1', '2', ... как целые числа и извлекаем байты
+    # Sort keys '0', '1', '2', ... as integers and extract bytes
     sorted_block_keys = sorted(blocks_map.keys(), key=lambda x: int(x))
     blocks = []
     for k in sorted_block_keys:
@@ -84,7 +84,7 @@ def decode_hex_data(hex_str):
     try:
         return binascii.unhexlify(hex_str)
     except binascii.Error:
-        raise ValueError(f"Некорректная HEX-строка: '{hex_str}'")
+        raise ValueError(f"Invalid HEX string: '{hex_str}'")
 
 
 def write_nfc_file(filename, card):
@@ -114,7 +114,7 @@ def generate_nfc_content(card):
     elif block_count == 256:
         mf_size = 4
     else:
-        mf_size = 0  # не самый типичный вариант
+        mf_size = 0  # uncommon case
 
     lines.append(f"Mifare Classic type: {mf_size}K")
     lines.append("Data format version: 2")
