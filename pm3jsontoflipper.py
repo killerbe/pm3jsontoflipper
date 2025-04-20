@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import argparse
 import json
 import binascii
 import sys
@@ -15,13 +14,34 @@ class MifareCard:
 
 
 def main():
-    args = parse_args()
     try:
-        # Преобразуем пути к абсолютному формату (по желанию):
-        input_file = os.path.abspath(args.input)
-        output_file = os.path.abspath(args.output)
+        # Запрашиваем пути к файлам через input
+        input_file = input(
+            "Введите путь к входному JSON-файлу дампа Proxmark3: "
+        ).strip()
+        output_file = input(
+            "Введите путь к выходному .nfc-файлу (Flipper Zero): "
+        ).strip()
+
+        # Преобразуем пути к абсолютному формату
+        input_file = os.path.abspath(input_file)
+        output_file = os.path.abspath(output_file)
+
+        # Проверяем, что указан полный путь с именем файла для выходного файла
+        if os.path.isdir(output_file):
+            default_name = "output.nfc"
+            output_file = os.path.join(output_file, default_name)
+            print(f"Выходной путь был директорией, используем: {output_file}")
+
+        # Проверяем существование входного файла
+        if not os.path.isfile(input_file):
+            raise FileNotFoundError(f"Входной файл не найден: {input_file}")
 
         card = parse_proxmark3_json_file(input_file)
+
+        # Создаем директорию для выходного файла, если она не существует
+        os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
         write_nfc_file(output_file, card)
         print(
             f"Успешно сконвертировано:\n  Input:  {input_file}\n  Output: {output_file}"
@@ -29,25 +49,6 @@ def main():
     except Exception as e:
         print(f"Ошибка: {e}", file=sys.stderr)
         sys.exit(1)
-
-
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Конвертер JSON-дампа Proxmark3 в NFC-файл Flipper Zero (Mifare Classic)."
-    )
-    parser.add_argument(
-        "-i",
-        "--input",
-        required=True,
-        help="Путь к входному JSON-файлу дампа Proxmark3",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        required=True,
-        help="Путь к выходному .nfc-файлу (Flipper Zero)",
-    )
-    return parser.parse_args()
 
 
 def parse_proxmark3_json_file(filename):
